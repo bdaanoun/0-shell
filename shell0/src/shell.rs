@@ -1,5 +1,5 @@
-use std::io::{self, Write};
 use colored::Colorize;
+use std::io::{self, Write};
 pub fn run_shell() {
     loop {
         print!("{}", "$ ".green());
@@ -40,6 +40,7 @@ fn execute_command(cmd: &str, args: &[&str]) -> Result<(), String> {
         "echo" => crate::commands::echo::echo(args),
         "pwd" => crate::commands::pwd::pwd(args),
         "cd" => crate::commands::cd::cd(args),
+        "ls" => crate::commands::ls::ls(args),
         "exit" => {
             std::process::exit(0);
         }
