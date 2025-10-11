@@ -1,8 +1,13 @@
 use colored::Colorize;
 use std::io::{self, Write};
+use std::env;
 pub fn run_shell() {
     loop {
-        print!("{}", "$ ".green());
+         let current_dir = match env::current_dir() {
+            Ok(path) => path.display().to_string(),
+            Err(_) => "?".to_string(),
+        };
+        print!("{} {} {} ", "$ ".green() ,  current_dir.blue(), "$".green());
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
@@ -40,6 +45,7 @@ fn execute_command(cmd: &str, args: &[&str]) -> Result<(), String> {
         "echo" => crate::commands::echo::echo(args),
         "pwd" => crate::commands::pwd::pwd(args),
         "mkdir" =>  crate::commands::mkdir::mkdir(args),
+        "rm" =>  crate::commands::rm::rm(args) ,
         "cd" => crate::commands::cd::cd(args),
         "ls" => crate::commands::ls::ls(args),
         "exit" => {
