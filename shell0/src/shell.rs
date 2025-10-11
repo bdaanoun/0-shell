@@ -39,6 +39,7 @@ fn execute_command(cmd: &str, args: &[&str]) -> Result<(), String> {
     match cmd {
         "echo" => crate::commands::echo::echo(args),
         "pwd" => crate::commands::pwd::pwd(args),
+        "mkdir" =>  crate::commands::mkdir::mkdir(args),
         "cd" => crate::commands::cd::cd(args),
         "ls" => crate::commands::ls::ls(args),
         "exit" => {
