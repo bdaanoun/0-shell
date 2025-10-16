@@ -2,7 +2,15 @@ use colored::Colorize;
 use std::io::{self, Write};
 use std::env;
 pub fn run_shell() {
-    banner_draw();
+    let logo = r#"
+_______                   .__           .__  .__   
+\   _  \             _____|  |__   ____ |  | |  |  
+/  /_\  \   ______  /  ___/  |  \_/ __ \|  | |  |  
+\  \_/   \ /_____/  \___ \|   Y  \  ___/|  |_|  |__
+ \_____  /         /____  >___|  /\___  >____/____/
+       \/               \/     \/     \/             
+"#;
+    println!("{}", logo.yellow());
     loop {
          let current_dir = match env::current_dir() {
             Ok(path) => path.display().to_string(),
@@ -56,20 +64,5 @@ fn execute_command(cmd: &str, args: &[&str]) -> Result<(), String> {
             std::process::exit(0);
         }
         _ => Err(format!("Command '{}' not found", cmd)),
-    }
-}
-
-fn  banner_draw(){
-      let banner = vec![
-        "  ___         _____ _          _ _ ",
-        " / _ \\       / ____| |        | | |",
-        "| | | |_____| (___ | |__   ___| | |",
-        "| | | |______\\___ \\| '_ \\ / _ \\ | |",
-        "| |_| |      ____) | | | |  __/ | |",
-        " \\___/      |_____/|_| |_|\\___|_|_|           Powred By 0xab",
-    ];
-
-    for line in banner {
-        println!("{}", line.red());
     }
 }

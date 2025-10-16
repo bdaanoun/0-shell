@@ -66,15 +66,12 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
                 }
             } else {
                 for (i, file_path) in dir_content.iter().enumerate() {
-                    let file_name = file_path
-                        .file_name()
-                        .and_then(|f| f.to_str())
-                        .unwrap_or("");
-                    
+                    let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+
                     let metadata = fs::symlink_metadata(&file_path).map_err(|e| e.to_string())?;
                     let is_dir = metadata.is_dir();
                     let is_symlink = metadata.is_symlink();
-                    
+
                     let mut display_text = if is_symlink {
                         file_name.bold().cyan().to_string()
                     } else if is_dir {
@@ -94,7 +91,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
                             display_text.push('*');
                         }
                     }
-                    
+
                     if i < dir_content.len() - 1 {
                         print!("{}  ", display_text);
                     } else {
@@ -110,7 +107,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
 fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<(), String> {
     let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
     let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
-    
+
     if long_format {
         let permissions = format_permissions(&metadata);
         let count_links = metadata.nlink();
@@ -127,7 +124,7 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
             .unwrap_or_else(|| metadata.gid().to_string());
 
         let is_dir = metadata.is_dir();
-        
+
         let mut name_display = if is_symlink {
             file_name.bold().cyan().to_string()
         } else if is_dir {
@@ -177,7 +174,7 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
     } else {
         let is_dir = metadata.is_dir();
         let is_symlink = metadata.is_symlink();
-        
+
         let mut display_text = if is_symlink {
             file_name.bold().cyan().to_string()
         } else if is_dir {
@@ -226,6 +223,8 @@ fn format_permissions(metadata: &fs::Metadata) -> String {
         'l'
     } else if metadata.is_dir() {
         'd'
+    } else if (mode & libc::S_IFMT) == libc::S_IFCHR {
+        'c'
     } else {
         '-'
     };
