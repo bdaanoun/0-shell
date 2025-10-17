@@ -12,6 +12,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
 
     for arg in args {
         if arg.contains("-") {
+            println!("👋");
             for c in arg.chars().skip(1) {
                 match c {
                     'a' => show_all = true,
@@ -26,7 +27,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
     }
 
     if files.is_empty() {
-        files.push(".")
+        files.push(".");
     }
 
     for (i, file_path) in files.iter().enumerate() {
@@ -51,7 +52,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
             for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
                 let entry = entry.map_err(|e| e.to_string())?;
                 let file_name = entry.file_name();
-                let file_name_str = file_name.to_string_lossy().to_string();
+                let file_name_str = file_name.to_string_lossy();
                 if !show_all && file_name_str.starts_with(".") {
                     continue;
                 }
@@ -72,15 +73,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
                     let is_dir = metadata.is_dir();
                     let is_symlink = metadata.is_symlink();
 
-                    let mut display_text = if is_symlink {
-                        file_name.bold().cyan().to_string()
-                    } else if is_dir {
-                        file_name.bold().blue().to_string()
-                    } else if is_executable(&metadata) {
-                        file_name.bold().green().to_string()
-                    } else {
-                        file_name.to_string()
-                    };
+                    let mut display_text = colorize_name(file_name, &metadata);
 
                     if classify {
                         if is_symlink {
@@ -124,16 +117,7 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
             .unwrap_or_else(|| metadata.gid().to_string());
 
         let is_dir = metadata.is_dir();
-
-        let mut name_display = if is_symlink {
-            file_name.bold().cyan().to_string()
-        } else if is_dir {
-            file_name.bold().blue().to_string()
-        } else if is_executable(&metadata) {
-            file_name.bold().green().to_string()
-        } else {
-            file_name.to_string()
-        };
+        let mut name_display = colorize_name(file_name, &metadata);
 
         if is_symlink {
             if let Ok(target) = std::fs::read_link(path) {
@@ -175,15 +159,7 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
         let is_dir = metadata.is_dir();
         let is_symlink = metadata.is_symlink();
 
-        let mut display_text = if is_symlink {
-            file_name.bold().cyan().to_string()
-        } else if is_dir {
-            file_name.bold().blue().to_string()
-        } else if is_executable(&metadata) {
-            file_name.bold().green().to_string()
-        } else {
-            file_name.to_string()
-        };
+        let mut display_text = colorize_name(file_name, &metadata);
 
         if classify {
             if is_symlink {
@@ -198,6 +174,22 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
         println!("{}", display_text);
     }
     Ok(())
+}
+
+fn colorize_name(file_name: &str, metadata: &fs::Metadata) -> String {
+    if metadata.is_symlink() {
+        file_name.bold().cyan().to_string()
+    } else if metadata.is_dir() {
+        file_name.bold().blue().to_string()
+    } else if (metadata.mode() & libc::S_IFMT) == libc::S_IFCHR {
+        file_name.bold().truecolor(255, 127, 0).to_string()
+    } else if (metadata.mode() & libc::S_IFMT) == libc::S_IFSOCK {
+        file_name.bold().magenta().to_string()
+    } else if is_executable(&metadata) {
+        file_name.bold().green().to_string()
+    } else {
+        file_name.to_string()
+    }
 }
 
 fn is_executable(meta_file: &fs::Metadata) -> bool {
@@ -219,12 +211,15 @@ fn format_time(time: SystemTime) -> String {
 
 fn format_permissions(metadata: &fs::Metadata) -> String {
     let mode = metadata.mode();
+
     let file_type = if metadata.is_symlink() {
         'l'
     } else if metadata.is_dir() {
         'd'
     } else if (mode & libc::S_IFMT) == libc::S_IFCHR {
         'c'
+    } else if (mode & libc::S_IFMT) == libc::S_IFSOCK {
+        's'
     } else {
         '-'
     };
