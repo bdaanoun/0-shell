@@ -28,7 +28,7 @@ pub fn echo(args: &[&str]) -> Result<(), String> {
                     raw_string.push_str(&continuation_line);
                     if raw_string.matches('"').count() % 2 == 0  && in_dqoute_loop {
                         break;
-                    }else if raw_string.matches('\'').count() % 2 == 0  && in_qoute_loop {
+                    }else if raw_string.matches("'").count() % 2 == 0  && in_qoute_loop {
                         break;
                     }
                 }
@@ -42,7 +42,7 @@ pub fn echo(args: &[&str]) -> Result<(), String> {
    if (in_qoute_loop && raw_string.ends_with('\n')) || (in_dqoute_loop && raw_string.ends_with('\n')) {
         raw_string.pop();
         }
-    let output = raw_string.replace('"', "");
+    let output = raw_string.replace('"', "").replace('\'', "");
     println!("{}", output);
     
     Ok(())
