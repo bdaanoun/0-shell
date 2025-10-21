@@ -1,6 +1,7 @@
 use colored::Colorize;
 use std::fs::{self};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::path::Path;
 use std::time::SystemTime;
 use users::{get_group_by_gid, get_user_by_uid};
 
@@ -12,7 +13,6 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
 
     for arg in args {
         if arg.contains("-") {
-            println!("👋");
             for c in arg.chars().skip(1) {
                 match c {
                     'a' => show_all = true,
@@ -30,70 +30,86 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
         files.push(".");
     }
 
-    for (i, file_path) in files.iter().enumerate() {
-        if i > 0 {
-            println!()
-        }
-        if files.len() > 1 {
-            println!("{}:", file_path);
-        }
-        let path = std::path::Path::new(file_path);
+    let mut missing = Vec::new();
+    let mut regular_files = Vec::new();
+    let mut dirs = Vec::new();
+
+    for f in &files {
+        let path = Path::new(f);
         if !path.exists() {
-            println!(
-                "ls: cannot access '{}': No such file or directory",
-                file_path
-            );
-            continue;
-        }
-        if path.is_file() || path.is_symlink() {
-            display(path, long_format, classify)?;
+            missing.push(f.to_string());
         } else if path.is_dir() {
-            let mut dir_content = Vec::new();
-            for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
-                let entry = entry.map_err(|e| e.to_string())?;
-                let file_name = entry.file_name();
-                let file_name_str = file_name.to_string_lossy();
-                if !show_all && file_name_str.starts_with(".") {
-                    continue;
-                }
-                dir_content.push(entry.path());
+            dirs.push(path.to_path_buf());
+        } else {
+            regular_files.push(path.to_path_buf());
+        }
+    }
+
+    for m in &missing {
+        eprintln!("ls: cannot access '{}': No such file or directory", m);
+    }
+
+    for f in &regular_files {
+        display(f, long_format, classify)?;
+    }
+
+    for dir in dirs.iter(){
+        if !regular_files.is_empty() || dirs.len() > 1 || !missing.is_empty() {
+            println!();
+            println!("{}:", dir.display());
+        }
+
+        let mut dir_content = Vec::new();
+        for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+
+            if !show_all && name_str.starts_with('.') {
+                continue;
             }
 
-            dir_content.sort();
+            dir_content.push(entry.path());
+        }
 
-            if long_format {
-                for entry in dir_content {
-                    display(&entry, long_format, classify)?;
+        dir_content.sort();
+
+        if long_format {
+            let mut total = 0;
+            for entry in &dir_content {
+                if let Ok(meta) = fs::symlink_metadata(entry){
+                    total += meta.blocks()
                 }
-            } else {
-                for (i, file_path) in dir_content.iter().enumerate() {
-                    let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+            }
+            println!("total {}",total/2);
+            for entry in &dir_content {
+                display(entry, long_format, classify)?;
+            }
+        } else {
+            for (j, entry) in dir_content.iter().enumerate() {
+                let file_name = entry.file_name().and_then(|f| f.to_str()).unwrap_or("");
+                let metadata = fs::symlink_metadata(entry).map_err(|e| e.to_string())?;
+                let mut display_text = colorize_name(file_name, &metadata);
 
-                    let metadata = fs::symlink_metadata(&file_path).map_err(|e| e.to_string())?;
-                    let is_dir = metadata.is_dir();
-                    let is_symlink = metadata.is_symlink();
-
-                    let mut display_text = colorize_name(file_name, &metadata);
-
-                    if classify {
-                        if is_symlink {
-                            display_text.push('@');
-                        } else if is_dir {
-                            display_text.push('/');
-                        } else if is_executable(&metadata) {
-                            display_text.push('*');
-                        }
+                if classify {
+                    if metadata.is_symlink() {
+                        display_text.push('@');
+                    } else if metadata.is_dir() {
+                        display_text.push('/');
+                    } else if is_executable(&metadata) {
+                        display_text.push('*');
                     }
+                }
 
-                    if i < dir_content.len() - 1 {
-                        print!("{}  ", display_text);
-                    } else {
-                        println!("{}", display_text)
-                    }
+                if j < dir_content.len() - 1 {
+                    print!("{}  ", display_text);
+                } else {
+                    println!("{}", display_text);
                 }
             }
         }
     }
+
     Ok(())
 }
 
