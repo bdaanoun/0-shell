@@ -121,10 +121,16 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
         let permissions = format_permissions(&metadata);
         let count_links = metadata.nlink();
         let is_symlink = metadata.is_symlink();
-        let size = metadata.len();
         let modified = metadata.modified().map_err(|er| er.to_string())?;
         let datetime = format_time(modified);
+        let file_type = metadata.mode() & libc::S_IFMT;
+                
+        let size_or_dev = if file_type == libc::S_IFCHR || file_type == libc::S_IFBLK {
+            format!("{}, {}", major(metadata.rdev()), minor(metadata.rdev()))
 
+        }else{
+            metadata.len().to_string()
+        };
         let username = get_user_by_uid(metadata.uid())
             .map(|n| n.name().to_string_lossy().into_owned())
             .unwrap_or_else(|| metadata.uid().to_string());
@@ -167,9 +173,10 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
             }
         }
 
+
         println!(
             "{} {:>3} {:>8} {:>8} {:>8} {} {}",
-            permissions, count_links, username, group, size, datetime, name_display
+            permissions, count_links, username, group, size_or_dev, datetime, name_display
         );
     } else {
         let is_dir = metadata.is_dir();
@@ -190,6 +197,14 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
         println!("{}", display_text);
     }
     Ok(())
+}
+
+
+fn major(rdev : u64)-> u64 {
+    (rdev>> 8) & 0xfff
+}
+fn minor(rdev : u64)-> u64{
+    (rdev& 0xff) | ((rdev>>12)& 0xfff00) 
 }
 
 fn colorize_name(file_name: &str, metadata: &fs::Metadata) -> String {
