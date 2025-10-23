@@ -2,6 +2,12 @@ use colored::Colorize;
 use std::io::{self, Write};
 use std::env;
 
+enum ParseResult {
+    Complete(Vec<String>),
+    Incomplete,
+    Error(String),
+}
+
 pub fn run_shell() {
     let logo = r#"
 _______                   .__           .__  .__   
@@ -18,7 +24,7 @@ _______                   .__           .__  .__
     loop {
         let current_dir = match env::current_dir() {
             Ok(path) => path.display().to_string(),
-            Err(_) => "?".to_string(),
+            Err(_) => "".to_string(),
         };
         
         if accumulated_input.is_empty() {
@@ -35,7 +41,7 @@ _______                   .__           .__  .__
             Ok(0) => {
                 // Ctrl+D pressed
                 if !accumulated_input.is_empty() {
-                    eprintln!("\nsh: syntax error: unexpected end of file");
+                    println!();
                     accumulated_input.clear();
                 } else {
                     println!();
@@ -51,7 +57,7 @@ _______                   .__           .__  .__
                             let command = &parts[0];
                             let args: Vec<&str> = parts[1..].iter().map(|s| s.as_str()).collect();
                             if let Err(e) = execute_command(command, &args) {
-                                eprintln!("{}", e);
+                                eprint!("{}", e);
                             }
                         }
                         accumulated_input.clear();
@@ -60,7 +66,7 @@ _______                   .__           .__  .__
                         continue;
                     }
                     ParseResult::Error(e) => {
-                        eprintln!("{}", e);
+                        eprint!("{}", e);
                         accumulated_input.clear();
                     }
                 }
@@ -71,12 +77,6 @@ _______                   .__           .__  .__
             }
         }
     }
-}
-
-enum ParseResult {
-    Complete(Vec<String>),
-    Incomplete,
-    Error(String),
 }
 
 fn parse_command(input: &str) -> ParseResult {
@@ -139,7 +139,7 @@ fn parse_command(input: &str) -> ParseResult {
     }
 
     if parts.is_empty() {
-        ParseResult::Error("No command provided".to_string())
+        ParseResult::Error("".to_string())
     } else {
         ParseResult::Complete(parts)
     }
