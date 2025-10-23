@@ -155,6 +155,7 @@ fn execute_command(cmd: &str, args: &[&str]) -> Result<(), String> {
         "cd" => crate::commands::cd::cd(args),
         "ls" => crate::commands::ls::ls(args),
         "cat" => crate::commands::cat::cat(args),
+        "cp" => crate::commands::cp::cp(args),
         "exit" => {
             std::process::exit(0);
         }

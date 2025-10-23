@@ -6,3 +6,4 @@ pub mod mkdir;
 pub  mod  rm ;
 pub  mod mv ;
 pub  mod cat ; 
+pub  mod cp ;
