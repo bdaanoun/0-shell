@@ -5,6 +5,10 @@ use std::path::Path;
 use std::time::SystemTime;
 use users::{get_group_by_gid, get_user_by_uid};
 
+
+
+
+
 pub fn ls(args: &[&str]) -> Result<(), String> {
     let mut show_all = false;
     let mut long_format = false;
@@ -53,7 +57,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
         display(f, long_format, classify)?;
     }
 
-    for dir in dirs.iter(){
+    for dir in dirs.iter() {
         if !regular_files.is_empty() || dirs.len() > 1 || !missing.is_empty() {
             println!();
             println!("{}:", dir.display());
@@ -77,11 +81,11 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
         if long_format {
             let mut total = 0;
             for entry in &dir_content {
-                if let Ok(meta) = fs::symlink_metadata(entry){
+                if let Ok(meta) = fs::symlink_metadata(entry) {
                     total += meta.blocks()
                 }
             }
-            println!("total {}",total/2);
+            println!("total {}", total / 2);
             for entry in &dir_content {
                 display(entry, long_format, classify)?;
             }
@@ -118,17 +122,16 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
     let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
 
     if long_format {
-        let permissions = format_permissions(&metadata);
+        let permissions = format_permissions(path,&metadata);
         let count_links = metadata.nlink();
         let is_symlink = metadata.is_symlink();
         let modified = metadata.modified().map_err(|er| er.to_string())?;
         let datetime = format_time(modified);
         let file_type = metadata.mode() & libc::S_IFMT;
-                
+
         let size_or_dev = if file_type == libc::S_IFCHR || file_type == libc::S_IFBLK {
             format!("{}, {}", major(metadata.rdev()), minor(metadata.rdev()))
-
-        }else{
+        } else {
             metadata.len().to_string()
         };
         let username = get_user_by_uid(metadata.uid())
@@ -173,7 +176,6 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
             }
         }
 
-
         println!(
             "{} {:>3} {:>8} {:>8} {:>8} {} {}",
             permissions, count_links, username, group, size_or_dev, datetime, name_display
@@ -199,12 +201,11 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
     Ok(())
 }
 
-
-fn major(rdev : u64)-> u64 {
-    (rdev>> 8) & 0xfff
+fn major(rdev: u64) -> u64 {
+    (rdev >> 8) & 0xfff
 }
-fn minor(rdev : u64)-> u64{
-    (rdev& 0xff) | ((rdev>>12)& 0xfff00) 
+fn minor(rdev: u64) -> u64 {
+    (rdev & 0xff) | ((rdev >> 12) & 0xfff00)
 }
 
 fn colorize_name(file_name: &str, metadata: &fs::Metadata) -> String {
@@ -240,7 +241,8 @@ fn format_time(time: SystemTime) -> String {
     }
 }
 
-fn format_permissions(metadata: &fs::Metadata) -> String {
+
+fn format_permissions(path: &Path, metadata: &fs::Metadata) -> String {
     let mode = metadata.mode();
 
     let file_type = if metadata.is_symlink() {
@@ -251,12 +253,16 @@ fn format_permissions(metadata: &fs::Metadata) -> String {
         'c'
     } else if (mode & libc::S_IFMT) == libc::S_IFSOCK {
         's'
+    } else if (mode & libc::S_IFMT) == libc::S_IFBLK {
+        'b'
     } else {
         '-'
     };
 
+    let acl_indicator = if has_acl(path) { '+' } else { ' ' };
+
     format!(
-        "{}{}{}{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{}{}{}{}{}",
         file_type,
         if mode & 0o400 != 0 { 'r' } else { '-' },
         if mode & 0o200 != 0 { 'w' } else { '-' },
@@ -267,5 +273,19 @@ fn format_permissions(metadata: &fs::Metadata) -> String {
         if mode & 0o004 != 0 { 'r' } else { '-' },
         if mode & 0o002 != 0 { 'w' } else { '-' },
         if mode & 0o001 != 0 { 'x' } else { '-' },
+        acl_indicator
     )
+}
+
+
+
+fn has_acl(path: &Path) -> bool {
+    if let Ok(attrs) = xattr::list(path) {
+        for attr in attrs {
+            if attr == "system.posix_acl_access" {
+                return true;
+            }
+        }
+    }
+    false
 }

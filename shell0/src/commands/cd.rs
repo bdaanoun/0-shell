@@ -10,7 +10,7 @@ pub fn cd(args: &[&str]) -> Result<(), String> {
 
     let path = Path::new(&target);
     if let Err(e) = env::set_current_dir(&path) {
-        return Err(format!("cd: {}: {}", target, e));
+        return Err(format!("cd: {}: {}", e, target));
     }
 
     Ok(())
