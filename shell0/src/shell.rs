@@ -22,24 +22,23 @@ _______                   .__           .__  .__
     let mut accumulated_input = String::new();
     
     loop {
-        let current_dir = match env::current_dir() {
-            Ok(path) => path.display().to_string(),
-            Err(_) => "".to_string(),
+        let current_dir = env::current_dir()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "?".to_string());
+        
+        let prompt = if accumulated_input.is_empty() {
+            format!("{} {} ", current_dir.blue(), "$".green())
+        } else {
+            format!("{} ", ">".yellow())
         };
         
-        if accumulated_input.is_empty() {
-            print!("{} {} ", current_dir.blue(), "$".green());
-        } else {
-            print!("{} ", "> ".yellow());
-        }
+        print!("{}", prompt);
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
-        let bytes_read = io::stdin().read_line(&mut input);
-        
-        match bytes_read {
+        match io::stdin().read_line(&mut input) {
             Ok(0) => {
-                // Ctrl+D pressed
+        
                 if !accumulated_input.is_empty() {
                     println!();
                     accumulated_input.clear();
@@ -49,6 +48,9 @@ _______                   .__           .__  .__
                 }
             }
             Ok(_) => {
+        
+                input = filter_escape_sequences(&input);
+                
                 accumulated_input.push_str(&input);
                 
                 match parse_command(&accumulated_input) {
@@ -63,10 +65,13 @@ _______                   .__           .__  .__
                         accumulated_input.clear();
                     }
                     ParseResult::Incomplete => {
+                
                         continue;
                     }
                     ParseResult::Error(e) => {
-                        eprint!("{}", e);
+                        if !e.is_empty() {
+                            eprintln!("{}", e);
+                        }
                         accumulated_input.clear();
                     }
                 }
@@ -78,7 +83,28 @@ _______                   .__           .__  .__
         }
     }
 }
+fn filter_escape_sequences(input: &str) -> String {
+    let mut filtered = String::new();
+    let mut chars = input.chars();
+    
+    while let Some(ch) = chars.next() {
 
+        if ch == '\x1b' {
+            while let Some(next_ch) = chars.next() {
+                if next_ch.is_alphabetic() {
+                    break;
+                }
+            }
+        } else if ch.is_control() && ch != '\n' && ch != '\t' && ch != '\r' {
+    
+            continue;
+        } else {
+            filtered.push(ch);
+        }
+    }
+    
+    filtered
+}
 fn parse_command(input: &str) -> ParseResult {
     let input = input.trim();
     if input.is_empty() {
@@ -93,29 +119,35 @@ fn parse_command(input: &str) -> ParseResult {
 
     while let Some(ch) = chars.next() {
         match ch {
+    
             '"' if !in_single_quote => {
                 in_double_quote = !in_double_quote;
             }
+    
             '\'' if !in_double_quote => {
                 in_single_quote = !in_single_quote;
             }
+    
             '\\' if !in_single_quote => {
                 if let Some(next_ch) = chars.next() {
                     match next_ch {
                         'n' => current.push('\n'),
                         't' => current.push('\t'),
                         'r' => current.push('\r'),
-                        'a' => current.push('\x07'),
-                        'b' => current.push('\x08'),
-                        'e' => current.push('\x1B'),
-                        'f' => current.push('\x0C'),
-                        'v' => current.push('\x0B'),
+                        'a' => current.push('\x07'),    
+                        'b' => current.push('\x08'),    
+                        'e' => current.push('\x1B'),    
+                        'f' => current.push('\x0C'),    
+                        'v' => current.push('\x0B'),    
+                        '0' => current.push('\0'),      
                         '\\' => current.push('\\'),
                         '"' => current.push('"'),
                         '\'' => current.push('\''),
                         ' ' => current.push(' '),
+                        '$' => current.push('$'),
+                        '`' => current.push('`'),
                         _ => {
-                            // current.push('\\');
+                    
                             current.push(next_ch);
                         }
                     }
@@ -123,12 +155,14 @@ fn parse_command(input: &str) -> ParseResult {
                     return ParseResult::Incomplete;
                 }
             }
+    
             ' ' | '\t' if !in_double_quote && !in_single_quote => {
                 if !current.is_empty() {
                     parts.push(current.clone());
                     current.clear();
                 }
             }
+    
             _ => {
                 current.push(ch);
             }

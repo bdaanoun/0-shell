@@ -75,9 +75,9 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
             
             dir_content.push(entry.path());
         }
-        // println!("{:?}", dir_content);
         
-        // println!("-- {:?}", entry);
+        
+        
         dir_content.sort();
         
         if long_format {
