@@ -28,7 +28,7 @@ _______                   .__           .__  .__
         };
         
         if accumulated_input.is_empty() {
-            print!("{} {} {} ", "$".green(), current_dir.blue(), "$".green());
+            print!("{} {} ", current_dir.blue(), "$".green());
         } else {
             print!("{} ", "> ".yellow());
         }
@@ -57,7 +57,7 @@ _______                   .__           .__  .__
                             let command = &parts[0];
                             let args: Vec<&str> = parts[1..].iter().map(|s| s.as_str()).collect();
                             if let Err(e) = execute_command(command, &args) {
-                                eprint!("{}", e);
+                                eprintln!("{}", e);
                             }
                         }
                         accumulated_input.clear();
@@ -105,12 +105,17 @@ fn parse_command(input: &str) -> ParseResult {
                         'n' => current.push('\n'),
                         't' => current.push('\t'),
                         'r' => current.push('\r'),
+                        'a' => current.push('\x07'),
+                        'b' => current.push('\x08'),
+                        'e' => current.push('\x1B'),
+                        'f' => current.push('\x0C'),
+                        'v' => current.push('\x0B'),
                         '\\' => current.push('\\'),
                         '"' => current.push('"'),
                         '\'' => current.push('\''),
                         ' ' => current.push(' '),
                         _ => {
-                            current.push('\\');
+                            // current.push('\\');
                             current.push(next_ch);
                         }
                     }

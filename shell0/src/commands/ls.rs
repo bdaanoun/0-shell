@@ -68,16 +68,18 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
             let entry = entry.map_err(|e| e.to_string())?;
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
-
+            
             if !show_all && name_str.starts_with('.') {
                 continue;
             }
-
+            
             dir_content.push(entry.path());
         }
-
+        // println!("{:?}", dir_content);
+        
+        // println!("-- {:?}", entry);
         dir_content.sort();
-
+        
         if long_format {
             let mut total = 0;
             for entry in &dir_content {
@@ -92,6 +94,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
         } else {
             for (j, entry) in dir_content.iter().enumerate() {
                 let file_name = entry.file_name().and_then(|f| f.to_str()).unwrap_or("");
+       
                 let metadata = fs::symlink_metadata(entry).map_err(|e| e.to_string())?;
                 let mut display_text = colorize_name(file_name, &metadata);
 
