@@ -22,11 +22,13 @@ _______                   .__           .__  .__
     let mut accumulated_input = String::new();
     
     loop {
-        let current_dir = env::current_dir()
+   //     let x  = env::current_dir() ;
+        let current_dir = env::current_dir() 
             .map(|p| p.display().to_string())
             .unwrap_or_else(|_| "?".to_string());
         
-        let prompt = if accumulated_input.is_empty() {
+        let prompt: String = if accumulated_input.is_empty() {
+            
             format!("{} {} ", current_dir.blue(), "$".green())
         } else {
             format!("{} ", ">".yellow())
@@ -65,7 +67,6 @@ _______                   .__           .__  .__
                         accumulated_input.clear();
                     }
                     ParseResult::Incomplete => {
-                
                         continue;
                     }
                     ParseResult::Error(e) => {
