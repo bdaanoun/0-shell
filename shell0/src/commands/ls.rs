@@ -1,13 +1,10 @@
+use chrono::{DateTime, Datelike, Duration, Local};
 use colored::Colorize;
 use std::fs::{self};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 use std::time::SystemTime;
 use users::{get_group_by_gid, get_user_by_uid};
-
-
-
-
 
 pub fn ls(args: &[&str]) -> Result<(), String> {
     let mut show_all = false;
@@ -64,22 +61,35 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
         }
 
         let mut dir_content = Vec::new();
+
+        if show_all {
+            // println!("{:?}", dir);
+            dir_content.push(Path::new(".").to_path_buf());
+            dir_content.push(Path::new("..").to_path_buf());
+        }
+
         for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
-            
+
             if !show_all && name_str.starts_with('.') {
                 continue;
             }
-            
+
             dir_content.push(entry.path());
         }
-        
-        
-        
-        dir_content.sort();
-        
+
+        dir_content.sort_by(|a, b| {
+            let a_name = a.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            let b_name = b.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+            let a_compare = a_name.trim_start_matches('.');
+            let b_compare = b_name.trim_start_matches('.');
+
+            a_compare.to_lowercase().cmp(&b_compare.to_lowercase())
+        });
+
         if long_format {
             let mut total = 0;
             for entry in &dir_content {
@@ -93,8 +103,11 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
             }
         } else {
             for (j, entry) in dir_content.iter().enumerate() {
-                let file_name = entry.file_name().and_then(|f| f.to_str()).unwrap_or("");
-       
+                let file_name = entry
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .unwrap_or_else(|| entry.to_str().unwrap_or(""));
+
                 let metadata = fs::symlink_metadata(entry).map_err(|e| e.to_string())?;
                 let mut display_text = colorize_name(file_name, &metadata);
 
@@ -122,10 +135,13 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
 
 fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<(), String> {
     let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
-    let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+    let file_name = path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or_else(|| path.to_str().unwrap_or(""));
 
     if long_format {
-        let permissions = format_permissions(path,&metadata);
+        let permissions = format_permissions(path, &metadata);
         let count_links = metadata.nlink();
         let is_symlink = metadata.is_symlink();
         let modified = metadata.modified().map_err(|er| er.to_string())?;
@@ -151,10 +167,17 @@ fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<
             if let Ok(target) = std::fs::read_link(path) {
                 let target_str = target.to_string_lossy();
 
-                let target_suffix = if let Ok(target_meta) = std::fs::metadata(path) {
-                    if classify {
+                let target_suffix = if classify {
+                    if let Ok(target_meta) = std::fs::metadata(path) {
+                        let target_mode = target_meta.mode();
+                        let target_file_type = target_mode & libc::S_IFMT;
+
                         if target_meta.is_dir() {
                             "/"
+                        } else if target_file_type == libc::S_IFSOCK {
+                            "="
+                        } else if target_file_type == libc::S_IFIFO {
+                            "|"
                         } else if is_executable(&target_meta) {
                             "*"
                         } else {
@@ -232,9 +255,8 @@ fn is_executable(meta_file: &fs::Metadata) -> bool {
 }
 
 fn format_time(time: SystemTime) -> String {
-    use chrono::{DateTime, Datelike, Local};
-
     let datetime: DateTime<Local> = time.into();
+    let datetime = datetime + Duration::hours(1);
     let now = Local::now();
 
     if datetime.year() == now.year() {
@@ -244,20 +266,22 @@ fn format_time(time: SystemTime) -> String {
     }
 }
 
-
 fn format_permissions(path: &Path, metadata: &fs::Metadata) -> String {
     let mode = metadata.mode();
+    let file_type_bits = mode & libc::S_IFMT;
 
     let file_type = if metadata.is_symlink() {
         'l'
     } else if metadata.is_dir() {
         'd'
-    } else if (mode & libc::S_IFMT) == libc::S_IFCHR {
+    } else if file_type_bits == libc::S_IFCHR {
         'c'
-    } else if (mode & libc::S_IFMT) == libc::S_IFSOCK {
-        's'
-    } else if (mode & libc::S_IFMT) == libc::S_IFBLK {
+    } else if file_type_bits == libc::S_IFBLK {
         'b'
+    } else if file_type_bits == libc::S_IFIFO {
+        'p'
+    } else if file_type_bits == libc::S_IFSOCK {
+        's'
     } else {
         '-'
     };
@@ -279,8 +303,6 @@ fn format_permissions(path: &Path, metadata: &fs::Metadata) -> String {
         acl_indicator
     )
 }
-
-
 
 fn has_acl(path: &Path) -> bool {
     if let Ok(attrs) = xattr::list(path) {
