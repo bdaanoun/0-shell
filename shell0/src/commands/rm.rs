@@ -35,12 +35,12 @@ pub fn rm(args: &[&str]) -> Result<(), String> {
                 }
             }
         }
-        
+
         if path.is_dir() {
             if recursive {
                 if let Err  (e) = fs::remove_dir_all(path) {
                     eprintln!("rm: cannot remove directory '{}': {}", path_str, e);
-                } else if deleting_current_dir {
+                } else if deleting_current_dir {git config pull.rebase false
                     if let Err(e) = env::set_current_dir("..") {
                         eprintln!("rm: deleted current directory, but failed to cd to parent: {}", e);
                     }
