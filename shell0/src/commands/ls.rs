@@ -52,7 +52,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
     }
 
     for m in &missing {
-        eprintln!("ls: cannot access '{}': No such file or directory", m);
+        eprintln!("ls: cannot access '{}': No such file or directory", m.trim());
     }
 
     for f in &regular_files {

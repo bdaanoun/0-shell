@@ -2,6 +2,7 @@ use colored::Colorize;
 use std::io::{self, Write};
 use std::env;
 
+
 enum ParseResult {
     Complete(Vec<String>),
     Incomplete,
@@ -40,7 +41,7 @@ _______                   .__           .__  .__
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
             Ok(0) => {
-        
+                
                 if !accumulated_input.is_empty() {
                     println!();
                     accumulated_input.clear();
@@ -84,19 +85,14 @@ _______                   .__           .__  .__
         }
     }
 }
+
 fn filter_escape_sequences(input: &str) -> String {
     let mut filtered = String::new();
     let mut chars = input.chars();
-    
-    while let Some(ch) = chars.next() {
 
-        if ch == '\x1b' {
-            while let Some(next_ch) = chars.next() {
-                if next_ch.is_alphabetic() {
-                    break;
-                }
-            }
-        } else if ch.is_control() && ch != '\n' && ch != '\t' && ch != '\r' {
+    while let Some(ch) = chars.next() {
+        
+        if ch.is_control() && ch != '\n' && ch != '\t' && ch != '\r' {
     
             continue;
         } else {
@@ -106,6 +102,7 @@ fn filter_escape_sequences(input: &str) -> String {
     
     filtered
 }
+
 fn parse_command(input: &str) -> ParseResult {
     let input = input.trim();
     if input.is_empty() {
@@ -114,7 +111,7 @@ fn parse_command(input: &str) -> ParseResult {
 
     let mut parts = Vec::new();
     let mut current = String::new();
-    let mut chars = input.chars().peekable();
+    let mut chars = input.chars();
     let mut in_double_quote = false;
     let mut in_single_quote = false;
 
@@ -134,19 +131,12 @@ fn parse_command(input: &str) -> ParseResult {
                     match next_ch {
                         'n' => current.push('\n'),
                         't' => current.push('\t'),
-                        'r' => current.push('\r'),
                         'a' => current.push('\x07'),
                         'b' => current.push('\x08'),
-                        'e' => current.push('\x1B'),    
-                        'f' => current.push('\x0C'),    
-                        'v' => current.push('\x0B'),    
-                        '0' => current.push('\0'),      
+                        'f' => current.push('\x0C'),
                         '\\' => current.push('\\'),
                         '"' => current.push('"'),
                         '\'' => current.push('\''),
-                        ' ' => current.push(' '),
-                        '$' => current.push('$'),
-                        '`' => current.push('`'),
                         _ => {
                     
                             current.push(next_ch);
@@ -177,7 +167,6 @@ fn parse_command(input: &str) -> ParseResult {
     if !current.is_empty() {
         parts.push(current);
     }
-
     if parts.is_empty() {
         ParseResult::Error("".to_string())
     } else {

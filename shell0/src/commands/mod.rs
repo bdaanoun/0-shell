@@ -1,9 +1,9 @@
+pub mod cat;
 pub mod cd;
+pub mod cp;
 pub mod echo;
 pub mod ls;
-pub mod pwd;
 pub mod mkdir;
-pub  mod  rm ;
-pub  mod mv ;
-pub  mod cat ; 
-pub  mod cp ;
+pub mod mv;
+pub mod pwd;
+pub mod rm;
