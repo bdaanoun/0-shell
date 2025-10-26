@@ -27,6 +27,8 @@ pub fn rm(args: &[&str]) -> Result<(), String> {
             continue;
         }
 
+
+         //  Handle deleting current directory
         let mut deleting_current_dir = false;
         if let Ok(ref current_dir) = current_dir_result {
             if let Ok(absolute_path) = path.canonicalize() {

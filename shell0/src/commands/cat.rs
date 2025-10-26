@@ -25,14 +25,12 @@ pub fn cat(args: &[&str]) -> Result<(), String> {
 }
 
 fn stream_stdin_to_stdout() -> io::Result<()> {
-    let stdin = io::stdin();
-    let mut handle = stdin.lock();
-    stream_reader_to_stdout(&mut handle)
+    let mut stdin = io::stdin();
+    stream_reader_to_stdout(&mut stdin)
 }
 
 fn stream_reader_to_stdout<R: Read>(reader: &mut R) -> io::Result<()> {
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
+    let mut stdout = io::stdout();
     let mut buffer = [0u8; 8 * 1024];
 
     loop {
@@ -40,7 +38,7 @@ fn stream_reader_to_stdout<R: Read>(reader: &mut R) -> io::Result<()> {
         if n == 0 {
             break;
         }
-        out.write_all(&buffer[..n])?;
+        stdout.write_all(&buffer[..n])?;
     }
     Ok(())
 }
