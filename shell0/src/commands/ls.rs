@@ -2,9 +2,14 @@ use chrono::{DateTime, Datelike, Duration, Local};
 use colored::Colorize;
 use std::fs::{self};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use users::{get_group_by_gid, get_user_by_uid};
+
+struct DirEntry {
+    path: PathBuf,
+    display_name: String,
+}
 
 pub fn ls(args: &[&str]) -> Result<(), String> {
     let mut show_all = false;
@@ -42,7 +47,7 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
         } else if path.is_dir() {
             dirs.push(path.to_path_buf());
         } else {
-            regular_files.push(path.to_path_buf());
+            regular_files.push(path);
         }
     }
 
@@ -51,7 +56,11 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
     }
 
     for f in &regular_files {
-        display(f, long_format, classify)?;
+        let file_name = f
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or_else(|| f.to_str().unwrap_or(""));
+        display(f, file_name, long_format, classify)?;
     }
 
     for dir in dirs.iter() {
@@ -60,12 +69,27 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
             println!("{}:", dir.display());
         }
 
-        let mut dir_content = Vec::new();
+        let mut dir_content: Vec<DirEntry> = Vec::new();
 
         if show_all {
-            // println!("{:?}", dir);
-            dir_content.push(Path::new(".").to_path_buf());
-            dir_content.push(Path::new("..").to_path_buf());
+            let abs_path = dir.canonicalize().map_err(|e| e.to_string())?;
+
+            dir_content.push(DirEntry {
+                path: abs_path.clone(),
+                display_name: ".".to_string(),
+            });
+
+            if let Some(parent) = abs_path.parent() {
+                dir_content.push(DirEntry {
+                    path: parent.to_path_buf(),
+                    display_name: "..".to_string(),
+                });
+            } else {
+                dir_content.push(DirEntry {
+                    path: Path::new("..").to_path_buf(),
+                    display_name: "..".to_string(),
+                });
+            }
         }
 
         for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
@@ -77,39 +101,33 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
                 continue;
             }
 
-            dir_content.push(entry.path());
+            dir_content.push(DirEntry {
+                path: entry.path(),
+                display_name: name_str.to_string(),
+            });
         }
 
         dir_content.sort_by(|a, b| {
-            let a_name = a.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            let b_name = b.file_name().and_then(|n| n.to_str()).unwrap_or("");
-
-            let a_compare = a_name.trim_start_matches('.');
-            let b_compare = b_name.trim_start_matches('.');
-
+            let a_compare = a.display_name.trim_start_matches('.');
+            let b_compare = b.display_name.trim_start_matches('.');
             a_compare.to_lowercase().cmp(&b_compare.to_lowercase())
         });
 
         if long_format {
             let mut total = 0;
             for entry in &dir_content {
-                if let Ok(meta) = fs::symlink_metadata(entry) {
+                if let Ok(meta) = fs::symlink_metadata(&entry.path) {
                     total += meta.blocks()
                 }
             }
             println!("total {}", total / 2);
             for entry in &dir_content {
-                display(entry, long_format, classify)?;
+                display(&entry.path, &entry.display_name, long_format, classify)?;
             }
         } else {
             for (j, entry) in dir_content.iter().enumerate() {
-                let file_name = entry
-                    .file_name()
-                    .and_then(|f| f.to_str())
-                    .unwrap_or_else(|| entry.to_str().unwrap_or(""));
-
-                let metadata = fs::symlink_metadata(entry).map_err(|e| e.to_string())?;
-                let mut display_text = colorize_name(file_name, &metadata);
+                let metadata = fs::symlink_metadata(&entry.path).map_err(|e| e.to_string())?;
+                let mut display_text = colorize_name(&entry.display_name, &metadata);
 
                 if classify {
                     if metadata.is_symlink() {
@@ -133,12 +151,8 @@ pub fn ls(args: &[&str]) -> Result<(), String> {
     Ok(())
 }
 
-fn display(path: &std::path::Path, long_format: bool, classify: bool) -> Result<(), String> {
+fn display(path: &std::path::Path, file_name: &str, long_format: bool, classify: bool) -> Result<(), String> {
     let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
-    let file_name = path
-        .file_name()
-        .and_then(|f| f.to_str())
-        .unwrap_or_else(|| path.to_str().unwrap_or(""));
 
     if long_format {
         let permissions = format_permissions(path, &metadata);

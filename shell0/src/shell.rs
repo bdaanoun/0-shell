@@ -198,6 +198,6 @@ fn execute_command(cmd: &str, args: &[&str]) -> Result<(), String> {
         "exit" => {
             std::process::exit(0);
         }
-        _ => Err(format!("Command '{}' not found", cmd)),
+        _ => Err(format!("Command not found: {}", cmd.trim())),
     }
 }
